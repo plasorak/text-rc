@@ -1,3 +1,4 @@
+import sys
 import asyncio
 from rc import RC
 from textual import log
@@ -117,23 +118,31 @@ class Command(Static):
     def watch_commands(self, commands:list[str]) -> None:
         # for cmd self.rcobj.get_all_commands():
         for button in self.query(Button):
-            if button.id in self.commands:
+            if button.id in self.commands or button.id == "quit":
                 button.display=True
             else:
                 button.display=False
         
     def compose(self) -> ComposeResult:
         yield TitleBox('Commands')
+        commandlist = self.rcobj.get_all_commands()
+        commandlist.append("quit")
         yield Horizontal(
-            *[Button(b, id=b) for b in self.rcobj.get_all_commands()],
+            *[Button(b, id=b) for b in commandlist],
             classes='buttonscontainer',
         )
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
-         """Event handler called when a button is pressed."""
-         button_id = event.button.id
-         method = getattr(self.rcobj, button_id) # We use the name of the button to find the right method of the Nanorc class
-         task = asyncio.create_task(method())
+        """Event handler called when a button is pressed."""
+        button_id = event.button.id
+        if button_id != 'quit': 
+            method = getattr(self.rcobj, button_id) # We use the name of the button to find the right method of the Nanorc class
+            task = asyncio.create_task(method())
+        else:
+            method = getattr(self.rcobj, "shutdown")
+            task = asyncio.create_task(method())
+            await task
+            sys.exit(0)
 
 
 class NanoRCTUI(App):
