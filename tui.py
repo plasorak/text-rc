@@ -22,6 +22,28 @@ class TitleBox(Static):
     def __init__(self, title, **kwargs):
         super().__init__(Markdown(f'# {title}'))
 
+class RunDisplay(Static): pass
+
+class RunInfo(Static):
+    runnum = reactive('none')
+
+    def __init__(self, rc, **kwargs):
+        super().__init__(**kwargs)
+        self.rcobj = rc
+
+    def update_runnum(self) -> None:
+        self.runnum = self.rcobj.run_num_mgr.get_run_number()
+
+    def watch_runnum(self, run:str) -> None:
+        run_display = self.query_one(RunDisplay)
+        run_display.update(Markdown(f'# Run Number: {self.runnum}'))
+
+    def on_mount(self) -> None:
+        self.set_interval(0.1, self.update_runnum)
+
+    def compose(self) -> ComposeResult:
+        yield RunDisplay()
+
 class LogDisplay(Static):
     logs = reactive('')
 
@@ -164,6 +186,7 @@ class NanoRCTUI(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Container(
+            RunInfo (rc = self.rc, classes = 'container'),
             Status  (rc = self.rc, classes='container'),
             Command (rc = self.rc, classes='container', id='command'),
             TreeView(rc = self.rc, classes='container', id='tree'),

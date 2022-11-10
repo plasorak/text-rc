@@ -3,9 +3,21 @@ import logging
 logging.basicConfig(level=logging.INFO)
 import queue
 
+class runmgr:
+    '''A VERY basic run manager that just stores a number'''
+    def __init__(self):
+        self.run_num = 0
+
+    def get_run_number(self):
+        return self.run_num
+
+    def new_run(self):
+        self.run_num += 1
+
 class RC:
 
-    def __init__(self, timeout:int=3):
+    def __init__(self, timeout:int=1):
+        self.run_num_mgr = runmgr()
         self.timeout = timeout # s
         self.log = logging.getLogger("RC")
         # log_handle = logging.FileHandler("rc.log")
@@ -140,6 +152,9 @@ class RC:
         for i in track(range(self.timeout*10), description=f"Sending {command}..."):
             self.log.info(f'Plenty of logs for the command \'{command}\'...')
             await asyncio.sleep(0.1)  # Simulate work being done
+
+        if command == 'start':
+            self.run_num_mgr.new_run()
 
         if command == 'terminate':
             self.tree = self.none_state_tree

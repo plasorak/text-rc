@@ -11,7 +11,7 @@ Button {
 }
 
 TitleBox{
-    width: 30
+    width: 30;
 }
 Status{
     width: 30
