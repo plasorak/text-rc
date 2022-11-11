@@ -15,6 +15,8 @@ import logging
 from logging.handlers import QueueHandler, QueueListener
 import queue
 
+from tree import InteractableTree
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -60,7 +62,7 @@ class LogDisplay(Static):
             try:
                 record = self.log_queue.get(block=False)
                 text = self.handler.render_message(record, record.msg)
-                self.logs += f'{text}\n'
+                self.logs = f'{text}\n' + self.logs
             except:
                 break
 
@@ -75,6 +77,8 @@ class Logs(Static):
     def compose(self) -> ComposeResult:
         yield TitleBox('Logs')
         yield Vertical(LogDisplay(self.log_queue), id='verticallogs')
+        #yield Button("Save logs to file", id="save", display=False)
+        #yield Button("Clear logs", id="clear", display=False)
         
 
 class StatusDisplay(Static): pass
@@ -119,6 +123,8 @@ class TreeView(Static):
     def watch_rctree(self, tree:dict) -> None:
         tree_display = self.query_one(TreeDisplay)
         import json
+        #T = JSON(json.dumps(tree))
+        #yield InteractableTree(T)
         tree_display.update(JSON(json.dumps(tree)))
 
     def on_mount(self) -> None:
