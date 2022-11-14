@@ -1,21 +1,29 @@
 import sys
 import asyncio
+from datetime import datetime
 from rc import RC
-from textual import log
+
+from rich.align import Align
+from rich.box import DOUBLE
 from rich.logging import RichHandler
+from rich.panel import Panel
 from rich.text import Text
 from rich.json import JSON
+from rich.console import RenderableType
 from rich.markdown import Markdown
+from rich.style import Style
+
+from textual import log, events
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Content, Container, Vertical
-
+from textual.widget import Widget
 from textual.widgets import Button, Header, Footer, Static
-from textual.reactive import reactive
+from textual.reactive import reactive, Reactive
+
 import logging
 from logging.handlers import QueueHandler, QueueListener
 import queue
-
-from tree import InteractableTree
+from anytree import RenderTree
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -45,6 +53,52 @@ class RunInfo(Static):
 
     def compose(self) -> ComposeResult:
         yield RunDisplay()
+'''
+class InputText(Widget):
+
+    title: Reactive[RenderableType] = Reactive("")
+    content: Reactive[RenderableType] = Reactive("")
+    mouse_over: Reactive[RenderableType] = Reactive(False)
+
+    def __init__(self, title: str, **kwargs):
+        super().__init__(**kwargs)
+        self.title = title
+
+    def on_enter(self) -> None:
+        self.mouse_over = True
+
+    def on_leave(self) -> None:
+        self.mouse_over = False
+
+    def on_key(self, event: events.Key) -> None:
+        if self.mouse_over == True:
+            if event.key == "ctrl+h":
+                self.content = self.content[:-1]
+            else:
+                self.content += event.key
+
+    def validate_title(self, value) -> None:
+        try:
+            return value.lower()
+        except (AttributeError, TypeError):
+            raise AssertionError("title attribute should be a string.")
+
+    def render(self) -> RenderableType:
+        renderable = None
+        if self.title.lower() == "password":
+            renderable = "".join(map(lambda char: "*", self.content))
+        else:
+            renderable = Align.left(Text(self.content, style="bold"))
+        return Panel(
+            renderable,
+            title=self.title,
+            title_align="center",
+            height=3,
+            style="bold white on rgb(50,57,50)",
+            border_style=Style(color="green"),
+            box=DOUBLE,
+        )
+'''
 
 class LogDisplay(Static):
     logs = reactive('')
@@ -66,20 +120,39 @@ class LogDisplay(Static):
             except:
                 break
 
-    def watch_logs(self, logs:str) ->None:
+    def watch_logs(self, logs:str) -> None:
         self.update(logs)
-        
+    
+    def delete_logs(self) -> None:
+        self.logs = ""
+
+    def save_logs(self) -> None:
+        data = self.logs
+        self.delete_logs()
+        time = datetime.now()
+        filename = "logs" + str(time)
+        f = open(filename, "x")
+        f.write(data)
+        f.close()
+    
 class Logs(Static):
+    searchtext: Reactive[RenderableType] = Reactive("")
+
     def __init__(self, log_queue, **kwargs):
         super().__init__(**kwargs)
         self.log_queue = log_queue
     
     def compose(self) -> ComposeResult:
         yield TitleBox('Logs')
+        yield Button("Save logs to file", id="save_logs")
+        yield Button("Clear logs", id="delete_logs")
         yield Vertical(LogDisplay(self.log_queue), id='verticallogs')
-        #yield Button("Save logs to file", id="save", display=False)
-        #yield Button("Clear logs", id="clear", display=False)
-        
+
+    async def on_button_pressed (self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+        logdisplay = self.query_one(LogDisplay)
+        method = getattr(logdisplay, button_id)
+        method()
 
 class StatusDisplay(Static): pass
 
@@ -124,11 +197,54 @@ class TreeView(Static):
         tree_display = self.query_one(TreeDisplay)
         import json
         #T = JSON(json.dumps(tree))
-        #yield InteractableTree(T)
-        tree_display.update(JSON(json.dumps(tree)))
+        #tree_display.update(T)
+        nicetree = self.render_json(tree)
+        tree_display.update(nicetree)
 
     def on_mount(self) -> None:
         self.set_interval(0.1, self.update_rctree)
+
+    def render_json(self, tree:dict):
+        branch_extend = '│  '
+        branch_mid    = '├─ '
+        branch_last   = '└─ '
+        spacing       = '   '
+        rows = []
+        last_cat = False
+        last_app = False
+        for tl_key in tree:                                                                 #Loop over top level nodes
+            tlvalue = tree[tl_key]
+            typelist = tlvalue['children']
+            text = tl_key + ': ' + tlvalue['state'] + '\n'
+            rows.append(text)
+            for i, typedict in enumerate(typelist):                                         #Loop over the dictionaries that correspond to a category
+                last_cat = (i == len(typelist)-1)
+                typename = list(typedict.keys())[0]    
+                typedata = typedict[typename]                                               #Gets the subdictionary with state and children
+                applist = typedata['children']
+                if last_cat:                                                    #If we are at the end, use the right shape
+                    c1 = branch_last
+                else:
+                    c1 = branch_mid               
+                text = c1 + typename + ': ' + typedata['state'] + '\n'
+                rows.append(text)
+                for j, appdict in enumerate(applist):                                                     #Loop over the apps themselves
+                    last_app = (j == len(applist)-1)
+                    appname = list(appdict.keys())[0]
+                    appdata = appdict[appname]                                              #Gets the subdictionary that contains the state
+                    if last_cat:
+                        a1 = spacing
+                    else:
+                        a1 = branch_extend
+                    if last_app:
+                        a2 = branch_last
+                    else:
+                        a2 = branch_mid
+                    text = a1 + a2 + appname + ': ' + appdata['state'] + '\n'
+                    rows.append(text)
+
+        return "".join(rows)
+
 
 class Command(Static):
     commands = reactive([])
@@ -192,17 +308,16 @@ class NanoRCTUI(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Container(
-            RunInfo (rc = self.rc, classes = 'container'),
-            Status  (rc = self.rc, classes='container'),
-            Command (rc = self.rc, classes='container', id='command'),
-            TreeView(rc = self.rc, classes='container', id='tree'),
-            Logs    (log_queue=self.log_queue, classes='container', id='log'),
+            RunInfo  (rc = self.rc, classes = 'container'),
+            Status   (rc = self.rc, classes='container'),
+            Command  (rc = self.rc, classes='container', id='command'),
+            TreeView (rc = self.rc, classes='container', id='tree'),
+            Logs     (log_queue=self.log_queue, classes='container', id='log'),
             id = 'app-grid'
         )
         
         yield Header(show_clock=True)
         yield Footer()
-
 
 if __name__ == "__main__":
     rc = RC()
