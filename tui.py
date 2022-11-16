@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime
 from rc import RC
 
+from rich import print
 from rich.align import Align
 from rich.box import DOUBLE
 from rich.logging import RichHandler
@@ -212,10 +213,17 @@ class TreeView(Static):
         rows = []
         last_cat = False
         last_app = False
+        col1 = "[bold magenta]"
+        col1end = "[/bold magenta]"
+        col2 = "[royal_blue1]"
+        col2end = "[/royal_blue1]"
+        col3 = "[green]"
+        col3end = "[/green]"
+
         for tl_key in tree:                                                                 #Loop over top level nodes
             tlvalue = tree[tl_key]
             typelist = tlvalue['children']
-            text = tl_key + ': ' + tlvalue['state'] + '\n'
+            text = f"{col1}{tl_key}: {tlvalue['state']}\n{col1end}"    
             rows.append(text)
             for i, typedict in enumerate(typelist):                                         #Loop over the dictionaries that correspond to a category
                 last_cat = (i == len(typelist)-1)
@@ -226,7 +234,7 @@ class TreeView(Static):
                     c1 = branch_last
                 else:
                     c1 = branch_mid               
-                text = c1 + typename + ': ' + typedata['state'] + '\n'
+                text = f"{col1}{c1}{col1end}{col2}{typename}: {typedata['state']}\n{col2end}"
                 rows.append(text)
                 for j, appdict in enumerate(applist):                                                     #Loop over the apps themselves
                     last_app = (j == len(applist)-1)
@@ -240,7 +248,7 @@ class TreeView(Static):
                         a2 = branch_last
                     else:
                         a2 = branch_mid
-                    text = a1 + a2 + appname + ': ' + appdata['state'] + '\n'
+                    text = f"{col1}{a1}{col1end}{col2}{a2}{col2end}{col3}{appname}: {appdata['state']}\n{col3end}"
                     rows.append(text)
 
         return "".join(rows)
