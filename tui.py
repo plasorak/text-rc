@@ -130,8 +130,10 @@ class LogDisplay(Static):
     def save_logs(self) -> None:
         data = self.logs
         self.delete_logs()
-        time = datetime.now()
-        filename = "logs" + str(time)
+        time = str(datetime.now())
+        time = time[:-3]                     #Times to the nearest millisecond instead of microsecond
+        time = "-".join(time.split())       #Joins date and time with a hyphen instead of a space
+        filename = f"logs{time}"
         f = open(filename, "x")
         f.write(data)
         f.close()
