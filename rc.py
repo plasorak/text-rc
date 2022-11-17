@@ -3,21 +3,29 @@ import logging
 logging.basicConfig(level=logging.INFO)
 import queue
 
-class runmgr:
-    '''A VERY basic run manager that just stores a number'''
+class RunManager:
+    '''A VERY basic run manager that just stores a number and type'''
     def __init__(self):
         self.run_num = 0
+        self.run_type = "STOPPED"
 
     def get_run_number(self):
         return self.run_num
+    
+    def get_run_type(self):
+        return self.run_type
 
     def new_run(self):
         self.run_num += 1
+        self.run_type = "TEST"          #All runs are tests
+    
+    def end_run(self):
+        self.run_type = "STOPPED"
 
 class RC:
 
     def __init__(self, timeout:int=1):
-        self.run_num_mgr = runmgr()
+        self.runmgr = RunManager()
         self.timeout = timeout # s
         self.log = logging.getLogger("RC")
         # log_handle = logging.FileHandler("rc.log")
@@ -136,8 +144,25 @@ class RC:
                 ]
             }
         } # type: dict[str, dict]
-        
+    '''    
+    def update_single_app(self, out_state:str, nodepath:str topnode:str, apptype:str, app:str) -> None:
+        nodepath = nodepath.split["/"]              #Nodepath should be formatted like np04_coldbox/daq/dataflow2
+        topnode = nodepath[0]
+        apptype = nodepath[1]
+        app = nodepath[2]                           #There is probably a better way of doing that
 
+        typelist = self.tree[topnode]['children']
+        for item in typelist:                       #Searches the list to find the dict with the right name
+            typecheck = list(item.keys())[0]
+            if typecheck == apptype:
+                typedict = item
+        applist = typedict[apptype]['children']
+        for item in applist:                        #Same but for apps
+            appcheck = list(item.keys())[0]
+            if appcheck == app:
+                appdict = item
+        appdict[app]['state'] = out_state
+    '''
         
     async def send_command(self, command:str, in_state:str, out_state:str) -> None:
         import time
@@ -154,7 +179,10 @@ class RC:
             await asyncio.sleep(0.1)  # Simulate work being done
 
         if command == 'start':
-            self.run_num_mgr.new_run()
+            self.runmgr.new_run()
+
+        if command == 'stop':
+            self.runmgr.end_run()
 
         if command == 'terminate':
             self.tree = self.none_state_tree

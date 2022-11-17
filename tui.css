@@ -50,3 +50,12 @@ Status{
     height: 18
 }
 
+.redtextbox{
+    margin: 1;
+    color: red;
+}
+
+.greentextbox{
+    margin: 1;
+    color: green;
+}

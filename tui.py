@@ -33,27 +33,71 @@ class TitleBox(Static):
     def __init__(self, title, **kwargs):
         super().__init__(Markdown(f'# {title}'))
 
-class RunDisplay(Static): pass
+class RunNumDisplay(Static): pass
+
+class RunTypeDisplay(Static): pass
 
 class RunInfo(Static):
     runnum = reactive('none')
+    runtype = reactive('none')
 
     def __init__(self, rc, **kwargs):
         super().__init__(**kwargs)
         self.rcobj = rc
+        self.numtext = ""
+        self.typetext = ""
+    
+    def update_text(self):
+        run_num_display = self.query_one(RunNumDisplay)
+        run_type_display = self.query_one(RunTypeDisplay)
+        if self.runtype != "STOPPED":
+            pass
+        else:
+            pass
+        if self.runnum != 0:
+            self.numtext = Markdown(f'# Run Number: {self.runnum}')
+        else:
+            self.numtext = Markdown(f'# Run Number:')
+        self.typetext = Markdown(f'# Run Type: {self.runtype}')
+        self.change_colour(run_num_display)
+        self.change_colour(run_type_display)
+        run_num_display.update(self.numtext)
+        run_type_display.update(self.typetext)
+    
+    def change_colour(self, obj) -> None:
+        #If the colour is correct then return
+        if (self.runtype == "STOPPED" and obj.has_class("redtextbox")) or (self.runtype != "STOPPED" and obj.has_class("greentextbox")):
+            return 
+        #Otherwise, swap to the other colour
+        if obj.has_class("redtextbox"):
+            obj.remove_class("redtextbox")
+            obj.add_class("greentextbox")
+        else:
+            obj.remove_class("greentextbox")
+            obj.add_class("redtextbox")
 
     def update_runnum(self) -> None:
-        self.runnum = self.rcobj.run_num_mgr.get_run_number()
+        self.runnum = self.rcobj.runmgr.get_run_number()
 
     def watch_runnum(self, run:str) -> None:
-        run_display = self.query_one(RunDisplay)
-        run_display.update(Markdown(f'# Run Number: {self.runnum}'))
+        self.update_text()
+
+    def update_runtype(self) -> None:
+        self.runtype = self.rcobj.runmgr.get_run_type()
+
+    def watch_runtype(self, run:str) -> None:
+        self.update_text()
 
     def on_mount(self) -> None:
         self.set_interval(0.1, self.update_runnum)
+        self.set_interval(0.1, self.update_runtype)
 
     def compose(self) -> ComposeResult:
-        yield RunDisplay()
+        yield Vertical (
+            RunNumDisplay(classes="redtextbox"),
+            RunTypeDisplay(classes="redtextbox")
+        )
+        
 '''
 class InputText(Widget):
 
