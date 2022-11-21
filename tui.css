@@ -7,30 +7,55 @@
 }
 
 Button {
-    width: 20;
+    width: 22;
+    margin:1;
+}
+RunNumDisplay {
+    border:hidden;
+    margin:0;
+    padding:0;
+}
+RunInfo {
+    column-span:1;
+    row-span:1;
+    layout: vertical;
+    margin:0;
+    padding:0;
 }
 
 TitleBox{
-    width: 30;
-}
-Status{
-    width: 30
+    /* width: 30; */
 }
 #command {
     column-span: 4;
     row-span: 1
 }
+
 #log {
     column-span: 4;
     row-span: 3;
 }
+
 #tree {
     row-span: 3;
 }
 
-#verticallogs {
-    height: 90%;
+#verticalbuttoncontainer {
+    margin:0;
+    padding:0;
+    border: hidden;
+    /* height:10% */
 }
+
+#verticalruninfo {
+    margin:0;
+    padding:0;
+}
+
+#verticallogs {
+    height: 80%;
+}
+
 #verticaltree {
     height: 90%;
 }
@@ -44,18 +69,19 @@ Status{
     border: wide dodgerblue
 }
 
-.buttonscontainer{
+.horizontalbuttonscontainer{
     layout: horizontal;
     margin: 1;
-    height: 18
+    padding: 0;
+    height: 4;
 }
 
 .redtextbox{
-    margin: 1;
+    /* margin: 1; */
     color: red;
 }
 
 .greentextbox{
-    margin: 1;
+    /* margin: 1; */
     color: green;
 }
