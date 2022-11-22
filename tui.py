@@ -35,38 +35,31 @@ class TitleBox(Static):
 
 class RunNumDisplay(Static): pass
 
-class RunTypeDisplay(Static): pass
+# class RunTypeDisplay(Static): pass
 
 class RunInfo(Static):
-    runnum = reactive('none')
+    runnum  = reactive('none')
     runtype = reactive('none')
 
     def __init__(self, rc, **kwargs):
         super().__init__(**kwargs)
         self.rcobj = rc
-        self.numtext = ""
-        self.typetext = ""
+        self.runtext = Markdown('# Run info')
     
     def update_text(self):
         run_num_display = self.query_one(RunNumDisplay)
-        run_type_display = self.query_one(RunTypeDisplay)
-        if self.runtype != "STOPPED":
-            pass
-        else:
-            pass
+        
         if self.runnum != 0:
-            self.numtext = Markdown(f'# Run Number: {self.runnum}')
+            self.runtext = Markdown(f'# Run info\n\nNumber: {self.runnum}\n\nType: {self.runtype}')
         else:
-            self.numtext = Markdown(f'# Run Number:')
-        self.typetext = Markdown(f'# Run Type: {self.runtype}')
+            self.runtext = Markdown('# Run info')
+
         self.change_colour(run_num_display)
-        self.change_colour(run_type_display)
-        run_num_display.update(self.numtext)
-        run_type_display.update(self.typetext)
-    
+        run_num_display.update(self.runtext)
+
     def change_colour(self, obj) -> None:
         #If the colour is correct then return
-        if (self.runtype == "STOPPED" and obj.has_class("redtextbox")) or (self.runtype != "STOPPED" and obj.has_class("greentextbox")):
+        if ('STOPPED' in self.runtype and obj.has_class("redtextbox")) or ('STOPPED' not in self.runtype and obj.has_class("greentextbox")):
             return 
         #Otherwise, swap to the other colour
         if obj.has_class("redtextbox"):
@@ -79,13 +72,13 @@ class RunInfo(Static):
     def update_runnum(self) -> None:
         self.runnum = self.rcobj.runmgr.get_run_number()
 
-    def watch_runnum(self, run:str) -> None:
-        self.update_text()
-
     def update_runtype(self) -> None:
         self.runtype = self.rcobj.runmgr.get_run_type()
 
     def watch_runtype(self, run:str) -> None:
+        self.update_text()
+
+    def watch_runnum(self, run:str) -> None:
         self.update_text()
 
     def on_mount(self) -> None:
@@ -93,10 +86,7 @@ class RunInfo(Static):
         self.set_interval(0.1, self.update_runtype)
 
     def compose(self) -> ComposeResult:
-        yield Vertical (
-            RunNumDisplay(classes="redtextbox"),
-            RunTypeDisplay(classes="redtextbox")
-        )
+        yield RunNumDisplay(classes="redtextbox")
         
 class LogDisplay(Static):
     logs = reactive('')
@@ -131,14 +121,19 @@ class LogDisplay(Static):
 
     def save_logs(self) -> None:
         data = self.logs
-        self.delete_logs()
+        # self.delete_logs() # dont want to delete_logs here
+        
         time = str(datetime.now())
-        time = time[:-3]                    #Times to the nearest millisecond instead of microsecond
-        time = "-".join(time.split())       #Joins date and time with a hyphen instead of a space
-        filename = f"logs{time}"
-        f = open(filename, "x")
-        f.write(data)
-        f.close()
+        
+        time = time[:-7]               # Times to the nearest second instead of microsecond
+        time = "-".join(time.split())  # Joins date and time with a hyphen instead of a space
+        time = time.replace(":","")    # chuck the weird ":"
+        filename = f"logs_{time}"
+        try: 
+            with open(filename, "x") as f:
+                f.write(data)
+        except:
+            pass
     
 class Logs(Static):
     def __init__(self, log_queue, **kwargs):
@@ -148,14 +143,15 @@ class Logs(Static):
     def compose(self) -> ComposeResult:
         yield TitleBox('Logs')
         yield Input(placeholder='Search logs')
-        '''
         yield Horizontal(
-            Button("Save logs to file", id="save_logs"), #USING A HORIZONTAL HIDES THE LOGS FOR SOME REASON
-            Button("Clear logs", id="delete_logs")
-        )'''
-        yield Button("Save logs to file", id="save_logs")
-        yield Button("Clear logs", id="delete_logs")
-        yield Vertical(LogDisplay(self.log_queue), id='verticallogs')
+            Button("Save logs", id="save_logs"),
+            Button("Clear logs", id="delete_logs"),
+            classes='horizontalbuttonscontainer'
+        )
+        yield Vertical(
+            LogDisplay(self.log_queue),
+            id='verticallogs'
+        )
 
     async def on_button_pressed (self, event: Button.Pressed) -> None:
         button_id = event.button.id
@@ -197,7 +193,8 @@ class Status(Static):
 
     def watch_rcstatus(self, status:str) -> None:
         status_display = self.query_one(StatusDisplay)
-        status_display.update(Markdown(f'# Status: {status}'))
+        nice_status = status.replace('_', ' ').capitalize()
+        status_display.update(Markdown(f'# Status\n\n{nice_status}'))
 
     def on_mount(self) -> None:
         self.set_interval(0.1, self.update_rcstatus)
@@ -294,36 +291,50 @@ class Command(Static):
 
     def update_buttons(self) -> None:
         self.commands = self.rcobj.get_available_commands()
-        
+
     def watch_commands(self, commands:list[str]) -> None:
         # for cmd self.rcobj.get_all_commands():
+        always_displayed = ['quit', 'abort']
         for button in self.query(Button):
-            if button.id in self.commands or button.id == "quit":
+            if button.id in self.commands or button.id in always_displayed:
                 button.display=True
             else:
                 button.display=False
+
+            if button.id == 'abort':
+                button.color = 'red'
         
     def compose(self) -> ComposeResult:
         yield TitleBox('Commands')
         commandlist = self.rcobj.get_all_commands()
-        commandlist.append("quit")
-        yield Horizontal(
-            *[Button(b, id=b) for b in commandlist],
-            classes='buttonscontainer',
+        yield Vertical(
+            Horizontal(
+                *[Button(b.replace('_', ' ').capitalize(), id=b) for b in commandlist],
+                classes='horizontalbuttonscontainer',
+            ),
+            Horizontal(
+                Button('Quit', id='quit'),
+                Button('Abort',variant='error', id='abort'),
+                classes='horizontalbuttonscontainer',
+            ),
+            id = 'verticalbuttoncontainer'
         )
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Event handler called when a button is pressed."""
         button_id = event.button.id
-        if button_id != 'quit': 
-            method = getattr(self.rcobj, button_id) # We use the name of the button to find the right method of the Nanorc class
-            task = asyncio.create_task(method())
-        else:
+        if button_id == 'quit':
             method = getattr(self.rcobj, "shutdown")
             task = asyncio.create_task(method())
             await task
             sys.exit(0)
-
+        elif button_id == 'abort':
+            sys.exit(0)
+        else:
+            method = getattr(self.rcobj, button_id) # We use the name of the button to find the right method of the Nanorc class
+            task = asyncio.create_task(method())
+            # await task
+        
 
 class NanoRCTUI(App):
     CSS_PATH = "tui.css"
@@ -344,7 +355,7 @@ class NanoRCTUI(App):
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Container(
-            RunInfo  (rc = self.rc, classes = 'container'),
+            RunInfo  (rc = self.rc, classes='container'),
             Status   (rc = self.rc, classes='container'),
             Command  (rc = self.rc, classes='container', id='command'),
             TreeView (rc = self.rc, classes='container', id='tree'),

@@ -176,12 +176,12 @@ class RC:
         self.log.info(f'Preparing to send \'{command}\'')
         for i in track(range(self.timeout*10), description=f"Sending {command}..."):
             self.log.info(f'Plenty of logs for the command \'{command}\'...')
-            await asyncio.sleep(0.1)  # Simulate work being done
+            await asyncio.sleep(0.01)  # Simulate work being done
 
         if command == 'start':
             self.runmgr.new_run()
 
-        if command == 'stop':
+        if command == 'drain_dataflow':
             self.runmgr.end_run()
 
         if command == 'terminate':
