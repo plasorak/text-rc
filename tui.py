@@ -18,7 +18,7 @@ from textual import log, events
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Content, Container, Vertical
 from textual.widget import Widget
-from textual.widgets import Button, Header, Footer, Static
+from textual.widgets import Button, Header, Footer, Static, Input
 from textual.reactive import reactive, Reactive
 
 import logging
@@ -98,60 +98,15 @@ class RunInfo(Static):
             RunTypeDisplay(classes="redtextbox")
         )
         
-'''
-class InputText(Widget):
-
-    title: Reactive[RenderableType] = Reactive("")
-    content: Reactive[RenderableType] = Reactive("")
-    mouse_over: Reactive[RenderableType] = Reactive(False)
-
-    def __init__(self, title: str, **kwargs):
-        super().__init__(**kwargs)
-        self.title = title
-
-    def on_enter(self) -> None:
-        self.mouse_over = True
-
-    def on_leave(self) -> None:
-        self.mouse_over = False
-
-    def on_key(self, event: events.Key) -> None:
-        if self.mouse_over == True:
-            if event.key == "ctrl+h":
-                self.content = self.content[:-1]
-            else:
-                self.content += event.key
-
-    def validate_title(self, value) -> None:
-        try:
-            return value.lower()
-        except (AttributeError, TypeError):
-            raise AssertionError("title attribute should be a string.")
-
-    def render(self) -> RenderableType:
-        renderable = None
-        if self.title.lower() == "password":
-            renderable = "".join(map(lambda char: "*", self.content))
-        else:
-            renderable = Align.left(Text(self.content, style="bold"))
-        return Panel(
-            renderable,
-            title=self.title,
-            title_align="center",
-            height=3,
-            style="bold white on rgb(50,57,50)",
-            border_style=Style(color="green"),
-            box=DOUBLE,
-        )
-'''
-
 class LogDisplay(Static):
     logs = reactive('')
+    searched_logs = reactive('')
 
     def __init__(self, log_queue, **kwargs):
         super().__init__(**kwargs)
         self.log_queue = log_queue
         self.handler = RichHandler()
+        self.search_mode = False
     
     def on_mount(self) -> None:
         self.set_interval(0.1, self.update_logs) # execute update_logs every second
@@ -165,8 +120,11 @@ class LogDisplay(Static):
             except:
                 break
 
-    def watch_logs(self, logs:str) -> None:
-        self.update(logs)
+    def watch_logs(self, logs:str, searched_logs:str) -> None:
+        if self.search_mode:
+            self.update(searched_logs)
+        else:
+            self.update(logs)
     
     def delete_logs(self) -> None:
         self.logs = ""
@@ -175,7 +133,7 @@ class LogDisplay(Static):
         data = self.logs
         self.delete_logs()
         time = str(datetime.now())
-        time = time[:-3]                     #Times to the nearest millisecond instead of microsecond
+        time = time[:-3]                    #Times to the nearest millisecond instead of microsecond
         time = "-".join(time.split())       #Joins date and time with a hyphen instead of a space
         filename = f"logs{time}"
         f = open(filename, "x")
@@ -183,14 +141,18 @@ class LogDisplay(Static):
         f.close()
     
 class Logs(Static):
-    searchtext: Reactive[RenderableType] = Reactive("")
-
     def __init__(self, log_queue, **kwargs):
         super().__init__(**kwargs)
         self.log_queue = log_queue
     
     def compose(self) -> ComposeResult:
         yield TitleBox('Logs')
+        yield Input(placeholder='Search logs')
+        '''
+        yield Horizontal(
+            Button("Save logs to file", id="save_logs"), #USING A HORIZONTAL HIDES THE LOGS FOR SOME REASON
+            Button("Clear logs", id="delete_logs")
+        )'''
         yield Button("Save logs to file", id="save_logs")
         yield Button("Clear logs", id="delete_logs")
         yield Vertical(LogDisplay(self.log_queue), id='verticallogs')
@@ -200,6 +162,26 @@ class Logs(Static):
         logdisplay = self.query_one(LogDisplay)
         method = getattr(logdisplay, button_id)
         method()
+
+    async def on_input_changed(self, message: Input.Changed) -> None:
+        """A coroutine to handle a text changed message."""
+        logdisplay = self.query_one(LogDisplay)
+        if message.value:
+            logdisplay.search_mode = True
+            task = asyncio.create_task(self.filter_logs(logdisplay, message.value))
+            logdisplay.searched_logs = await(task)
+            logdisplay.update(logdisplay.searched_logs)
+        else:
+            logdisplay.search_mode = False
+            logdisplay.update(logdisplay.logs)
+
+    async def filter_logs(self, logdisplay, term: str):
+        loglist = logdisplay.logs.split("\n")                                       #Splits the log string into a list of logs
+        #Gets a list of all logs that contain term as a substring (case insensitive)
+        searchedlist = [log for log in loglist if term.lower() in log.lower()]   
+        return "\n".join(searchedlist)                                              #Reformats the list as a string with newlines
+
+
 
 class StatusDisplay(Static): pass
 
