@@ -20,6 +20,7 @@ from textual.containers import Horizontal, Content, Container, Vertical
 from textual.widget import Widget
 from textual.widgets import Button, Header, Footer, Static, Input
 from textual.reactive import reactive, Reactive
+from textual.message import Message, MessageTarget
 
 import logging
 from logging.handlers import QueueHandler, QueueListener
@@ -90,13 +91,18 @@ class RunInfo(Static):
         
 class LogDisplay(Static):
     logs = reactive('')
-    searched_logs = reactive('')
+
+    class SearchAgain(Message):    
+        '''The message that tells the searchbar to update itself'''
+        def __init__(self, sender: MessageTarget) -> None:
+            super().__init__(sender)
 
     def __init__(self, log_queue, **kwargs):
         super().__init__(**kwargs)
         self.log_queue = log_queue
         self.handler = RichHandler()
         self.search_mode = False
+        self.searched_logs = ''
     
     def on_mount(self) -> None:
         self.set_interval(0.1, self.update_logs) # execute update_logs every second
@@ -112,6 +118,7 @@ class LogDisplay(Static):
 
     def watch_logs(self, logs:str, searched_logs:str) -> None:
         if self.search_mode:
+            self.emit_no_wait(self.SearchAgain(self)) #Send a message up to the parent
             self.update(searched_logs)
         else:
             self.update(logs)
@@ -161,10 +168,19 @@ class Logs(Static):
 
     async def on_input_changed(self, message: Input.Changed) -> None:
         """A coroutine to handle a text changed message."""
+        await self.begin_search(message.value)
+
+    async def on_log_display_search_again(self, message:LogDisplay.SearchAgain) -> None:
+        '''To get the right name, we convert from CamelCase to snake_case'''
+        textbox = self.query_one(Input)
+        await self.begin_search(textbox.value)
+        
+    async def begin_search(self, message:str) -> None:
+        '''This function is called when the logs update, and when the user types in the box'''
         logdisplay = self.query_one(LogDisplay)
-        if message.value:
+        if message:
             logdisplay.search_mode = True
-            task = asyncio.create_task(self.filter_logs(logdisplay, message.value))
+            task = asyncio.create_task(self.filter_logs(logdisplay, message))
             logdisplay.searched_logs = await(task)
             logdisplay.update(logdisplay.searched_logs)
         else:
@@ -239,11 +255,11 @@ class TreeView(Static):
         last_cat = False
         last_app = False
         col1 = "[bold magenta]"
-        col1end = "[/bold magenta]"
+        col1end = "[/" + col1[1:]
         col2 = "[royal_blue1]"
-        col2end = "[/royal_blue1]"
+        col2end = "[/" + col2[1:]
         col3 = "[green]"
-        col3end = "[/green]"
+        col3end = "[/" + col3[1:]
 
         for tl_key in tree:                                                                 #Loop over top level nodes
             tlvalue = tree[tl_key]
