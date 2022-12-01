@@ -60,10 +60,17 @@ TitleBox{
     height: 90%;
 }
 
+Screen {
+    align: center middle;
+    layers: below above;
+}
+
 #pop_up{
     layer: above;
     align: center middle;
     background: cadetblue;
+    height: 50%;
+    width: 50%;
 }
 
 Status{
