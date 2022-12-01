@@ -23,7 +23,6 @@ class RunManager:
         self.run_type = "STOPPED"
 
 class RC:
-
     def __init__(self, timeout:int=1):
         self.runmgr = RunManager()
         self.timeout = timeout # s
@@ -53,6 +52,23 @@ class RC:
             }
         } # type: dict[str, dict]
         self.tree = self.none_state_tree
+        self.paramdict = {
+            'boot': ["timeout"],
+            'start_run': ["timeout", "new_rate"],
+            'conf': ["timeout"],
+            'terminate': ["timeout"],
+            'shutdown': ["timeout", "some", "more", "arguments"],
+            'scrap': ["timeout"],
+            'start': ["timeout"],
+            'enable_trigger': ["timeout", "new_rate"],
+            'disable_trigger': ["timeout"],
+            'drain_dataflow': ["timeout"],
+            'stop_trigger_sources': ["timeout"],
+            'stop': ["timeout"],
+
+
+
+        }
 
     def get_available_commands(self) -> list[str]:
         if   self.state == 'none':                    return ['boot']
@@ -163,8 +179,10 @@ class RC:
                 appdict = item
         appdict[app]['state'] = out_state
     '''
+    def get_required_params(self, command:str) -> list:
+        return(self.paramdict[command])
         
-    async def send_command(self, command:str, in_state:str, out_state:str) -> None:
+    async def send_command(self, command:str, in_state:str, out_state:str, **kwargs) -> None:
         import time
         from rich.progress import track
         
@@ -172,8 +190,12 @@ class RC:
             raise RuntimeError(f'Cannot send {command} from \'{self.state}\'')
         
         self.state = command+'ing'
-        
+        words = ""
+        for key in kwargs:
+            words += f"{key}: {kwargs[key]}\n"
+
         self.log.info(f'Preparing to send \'{command}\'')
+        self.log.info(f'\nProvided parameters:\n{words}')
         for i in track(range(self.timeout*10), description=f"Sending {command}..."):
             self.log.info(f'Plenty of logs for the command \'{command}\'...')
             await asyncio.sleep(0.01)  # Simulate work being done
@@ -192,53 +214,52 @@ class RC:
         self.state = out_state
         self.log.info(f'Sent \'{command}\'')
 
-
-    async def boot(self) -> None:
-        await self.send_command('boot', 'none', 'initialised')
+    async def boot(self, **kwargs) -> None:
+        await self.send_command('boot', 'none', 'initialised', **kwargs)
         
-    async def conf(self) -> None:
-        await self.send_command('conf', 'initialised', 'configured')
+    async def conf(self, **kwargs) -> None:
+        await self.send_command('conf', 'initialised', 'configured', **kwargs)
 
-    async def start(self) -> None:
-        await self.send_command('start', 'configured', 'ready')
+    async def start(self, **kwargs) -> None:
+        await self.send_command('start', 'configured', 'ready', **kwargs)
         
-    async def enable_trigger(self) -> None:
-        await self.send_command('enable_trigger', 'ready', 'trigger_enabled')
+    async def enable_trigger(self, **kwargs) -> None:
+        await self.send_command('enable_trigger', 'ready', 'trigger_enabled', **kwargs)
 
-    async def disable_trigger(self) -> None:
-        await self.send_command('disable_trigger', 'trigger_enabled', 'ready')
+    async def disable_trigger(self, **kwargs) -> None:
+        await self.send_command('disable_trigger', 'trigger_enabled', 'ready', **kwargs)
 
-    async def drain_dataflow(self) -> None:
-        await self.send_command('drain_dataflow', 'ready', 'dataflow_drained')
+    async def drain_dataflow(self, **kwargs) -> None:
+        await self.send_command('drain_dataflow', 'ready', 'dataflow_drained', **kwargs)
 
-    async def stop_trigger_sources(self) -> None:
-        await self.send_command('stop_trigger_sources', 'dataflow_drained', 'trigger_sources_stopped')
+    async def stop_trigger_sources(self, **kwargs) -> None:
+        await self.send_command('stop_trigger_sources', 'dataflow_drained', 'trigger_sources_stopped', **kwargs)
     
-    async def stop(self) -> None:
-        await self.send_command('stop', 'trigger_sources_stopped', 'configured')
+    async def stop(self, **kwargs) -> None:
+        await self.send_command('stop', 'trigger_sources_stopped', 'configured', **kwargs)
         
-    async def scrap(self) -> None:
-        await self.send_command('scrap', 'configured', 'initialised')
+    async def scrap(self, **kwargs) -> None:
+        await self.send_command('scrap', 'configured', 'initialised', **kwargs)
         
-    async def terminate(self) -> None:
-        await self.send_command('terminate', 'initialised', 'none')
+    async def terminate(self, **kwargs) -> None:
+        await self.send_command('terminate', 'initialised', 'none', **kwargs)
 
 
-    async def execute_maybe(self, cmd, in_state, out_state):
+    async def execute_maybe(self, cmd, in_state, out_state, **kwargs):
         try:
-            await self.send_command(cmd, in_state, out_state)
+            await self.send_command(cmd, in_state, out_state, **kwargs)
         except:
             pass
             
-    async def shutdown(self) -> None:
+    async def shutdown(self, **kwargs) -> None:
         await self.execute_maybe('disable_trigger',      'trigger_enabled',         'ready'                  )
         await self.execute_maybe('drain_dataflow',       'ready',                   'dataflow_drained'       )
         await self.execute_maybe('stop_trigger_sources', 'dataflow_drained',        'trigger_sources_stopped')
         await self.execute_maybe('stop',                 'trigger_sources_stopped', 'configured'             )
         await self.execute_maybe('scrap',                'configured',              'initialised'            )
-        await self.execute_maybe('terminate',            'initialised',             'none'                   )
+        await self.execute_maybe('terminate',            'initialised',             'none'                  )
         
-    async def start_run(self) -> None:
+    async def start_run(self, **kwargs) -> None:
         await self.execute_maybe('conf',           'initialised', 'configured'     )
         await self.execute_maybe('start',          'configured',  'ready'          )
         await self.execute_maybe('enable_trigger', 'ready',       'trigger_enabled')

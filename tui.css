@@ -60,6 +60,12 @@ TitleBox{
     height: 90%;
 }
 
+#pop_up{
+    layer: above;
+    align: center middle;
+    background: cadetblue;
+}
+
 Status{
     layout: horizontal
 }
@@ -74,6 +80,7 @@ Status{
     margin: 1;
     padding: 0;
     height: 4;
+    align:center top;
 }
 
 .redtextbox{

@@ -347,10 +347,37 @@ class Command(Static):
         elif button_id == 'abort':
             sys.exit(0)
         else:
-            method = getattr(self.rcobj, button_id) # We use the name of the button to find the right method of the Nanorc class
-            task = asyncio.create_task(method())
-            # await task
-        
+            app.mount(InputWindow(rc=self.rcobj, command=button_id, id="pop_up"))
+
+class InputWindow(Widget):
+    def __init__(self, rc, command, **kwargs):
+        super().__init__(**kwargs)
+        self.rcobj = rc
+        self.command = command
+
+    def compose(self) -> ComposeResult:
+        params = self.rcobj.get_required_params(self.command)
+        yield Vertical(
+            *[Input(placeholder=p, id=p) for p in params],
+            Horizontal(
+                Button("Execute Command", id="go"),
+                Button('Cancel',variant='error', id='cancel'),
+                classes = "horizontalbuttonscontainer"
+            )
+        )
+    
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
+        button_id = event.button.id
+        params = {}
+        inputs = self.query(Input)
+
+        if button_id == "go":
+            method = getattr(self.rcobj, self.command) #If the user presses execute, then find the appropriate nanorc method
+            for i in inputs:
+                params[i.id] = i.value
+            task = asyncio.create_task(method(**params))
+            await task
+        self.remove()
 
 class NanoRCTUI(App):
     CSS_PATH = "tui.css"
